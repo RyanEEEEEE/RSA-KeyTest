@@ -170,6 +170,9 @@ function decryptData(vector, key, data) {
   );
 }
 
+// Define the signing algorithm
+const signAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+
 // Check if keys exist in localStorage
 const publicKeyExists = localStorage.getItem("publicKey");
 const privateKeyExists = localStorage.getItem("privateKey");
@@ -180,7 +183,7 @@ if (publicKeyExists && privateKeyExists) {
   const privateKeyPem = privateKeyExists;
 
   // Call the necessary functions to import the keys
-  importPublicKey(publicKeyPem)
+  importPublicKey(publicKeyPem, signAlgorithm)
     .then((publicKey) => {
       console.log("Public Key (Imported):", publicKey);
       // Use the public key as needed
@@ -189,7 +192,7 @@ if (publicKeyExists && privateKeyExists) {
       console.error("Error importing public key:", error);
     });
 
-  importPrivateKey(privateKeyPem)
+  importPrivateKey(privateKeyPem, signAlgorithm)
     .then((privateKey) => {
       console.log("Private Key (Imported):", privateKey);
       // Use the private key as needed
@@ -199,14 +202,14 @@ if (publicKeyExists && privateKeyExists) {
     });
 } else {
   // Generate RSA key pair
-  generateKey(
-    {
-      name: "RSA-OAEP",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-    },
-    ["encrypt", "decrypt"]
-  )
+  const keyGenParams = {
+    name: "RSA-OAEP",
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: signAlgorithm,
+  };
+
+  generateKey(keyGenParams, ["encrypt", "decrypt"])
     .then((pair) => {
       // Export public and private keys to PEM format
       exportPemKeys(pair)
