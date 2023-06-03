@@ -82,33 +82,23 @@ function convertPemToBinary(pem) {
 }
 
 function importPublicKey(pemKey) {
-  return new Promise(function (resolve) {
-    var importer = crypto.subtle.importKey(
-      "spki",
-      convertPemToBinary(pemKey),
-      signAlgorithm,
-      true,
-      ["verify"]
-    );
-    importer.then(function (key) {
-      resolve(key);
-    });
-  });
+  return window.crypto.subtle.importKey(
+    "spki",
+    convertPemToBinary(pemKey),
+    { name: "RSA-OAEP", hash: { name: "SHA-256" } },
+    true,
+    ["encrypt"]
+  );
 }
 
 function importPrivateKey(pemKey) {
-  return new Promise(function (resolve) {
-    var importer = crypto.subtle.importKey(
-      "pkcs8",
-      convertPemToBinary(pemKey),
-      signAlgorithm,
-      true,
-      ["sign"]
-    );
-    importer.then(function (key) {
-      resolve(key);
-    });
-  });
+  return window.crypto.subtle.importKey(
+    "pkcs8",
+    convertPemToBinary(pemKey),
+    { name: "RSA-OAEP", hash: { name: "SHA-256" } },
+    true,
+    ["decrypt"]
+  );
 }
 
 function exportPublicKey(keys) {
@@ -148,28 +138,6 @@ function testVerifySig(pub, sig, data) {
   return crypto.subtle.verify(signAlgorithm, pub, sig, data);
 }
 
-function encryptData(vector, key, data) {
-  return crypto.subtle.encrypt(
-    {
-      name: "RSA-OAEP",
-      iv: vector,
-    },
-    key,
-    textToArrayBuffer(data)
-  );
-}
-
-function decryptData(vector, key, data) {
-  return crypto.subtle.decrypt(
-    {
-      name: "RSA-OAEP",
-      iv: vector,
-    },
-    key,
-    data
-  );
-}
-
 async function generateAndStoreKey() {
   const storedKeys = localStorage.getItem("keys");
   let keys = storedKeys ? JSON.parse(storedKeys) : null;
@@ -185,20 +153,72 @@ async function generateAndStoreKey() {
     const keyPair = await generateKey(algorithm, ["encrypt", "decrypt"]);
 
     // Export the keys as PEM format
-    const pemKeys = await exportPemKeys(keyPair);
+    const publicKey = await exportPublicKey(keyPair.publicKey);
+    const privateKey = await exportPrivateKey(keyPair.privateKey);
 
     // Store the keys in localStorage
     keys = {
-      publicKey: pemKeys.publicKey,
-      privateKey: pemKeys.privateKey,
+      publicKey: convertBinaryToPem(publicKey, "RSA PUBLIC KEY"),
+      privateKey: convertBinaryToPem(privateKey, "RSA PRIVATE KEY"),
+      keyPair: keyPair, // Store the actual CryptoKey pair for future use
     };
     localStorage.setItem("keys", JSON.stringify(keys));
   }
 
+  // Import the keys for encryption and decryption
+  keys.publicKey = await importPublicKey(keys.publicKey);
+  keys.privateKey = await importPrivateKey(keys.privateKey);
+
   return keys;
 }
 
+function encryptData(publicKey, data) {
+  return window.crypto.subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+      hash: { name: "SHA-256" },
+    },
+    publicKey,
+    textToArrayBuffer(data)
+  );
+}
+
+function decryptData(privateKey, data) {
+  return window.crypto.subtle.decrypt(
+    {
+      name: "RSA-OAEP",
+      hash: { name: "SHA-256" },
+    },
+    privateKey,
+    data
+  );
+}
+
+// Usage example
 generateAndStoreKey().then(function (keys) {
+  console.log("Key Pair:", keys.keyPair);
   console.log("Public Key:", keys.publicKey);
   console.log("Private Key:", keys.privateKey);
+
+  // Example usage: Encrypt and decrypt a message
+  const message = "Hello, World!";
+  const encryptedMessage = encryptData(keys.publicKey, message);
+  encryptedMessage.then(function (encryptedData) {
+    console.log("Encrypted Data:", encryptedData);
+    console.log("Encrypted Data:", arrayBufferToBase64String(encryptedData));
+
+    const decryptedMessage = decryptData(keys.privateKey, encryptedData);
+    decryptedMessage.then(function (decryptedData) {
+      const decryptedText = arrayBufferToText(decryptedData);
+      console.log("Decrypted Text:", decryptedText);
+    });
+    const decryptedMessageFromBase64 = decryptData(
+      keys.privateKey,
+      base64StringToArrayBuffer(arrayBufferToBase64String(encryptedData))
+    );
+    decryptedMessageFromBase64.then(function (decryptedData) {
+      const decryptedText = arrayBufferToText(decryptedData);
+      console.log("Decrypted Text:", decryptedText);
+    });
+  });
 });
