@@ -170,64 +170,35 @@ function decryptData(vector, key, data) {
   );
 }
 
-// Define the signing algorithm
-const signAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+async function generateAndStoreKey() {
+  const storedKeys = localStorage.getItem("keys");
+  let keys = storedKeys ? JSON.parse(storedKeys) : null;
 
-// Check if keys exist in localStorage
-const publicKeyExists = localStorage.getItem("publicKey");
-const privateKeyExists = localStorage.getItem("privateKey");
+  if (!keys) {
+    // Generate new keys
+    const algorithm = {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: { name: "SHA-256" }, // Specify the hash algorithm identifier
+    };
+    const keyPair = await generateKey(algorithm, ["encrypt", "decrypt"]);
 
-if (publicKeyExists && privateKeyExists) {
-  // Keys already exist, retrieve them from localStorage
-  const publicKeyPem = publicKeyExists;
-  const privateKeyPem = privateKeyExists;
+    // Export the keys as PEM format
+    const pemKeys = await exportPemKeys(keyPair);
 
-  // Call the necessary functions to import the keys
-  importPublicKey(publicKeyPem, signAlgorithm)
-    .then((publicKey) => {
-      console.log("Public Key (Imported):", publicKey);
-      // Use the public key as needed
-    })
-    .catch((error) => {
-      console.error("Error importing public key:", error);
-    });
+    // Store the keys in localStorage
+    keys = {
+      publicKey: pemKeys.publicKey,
+      privateKey: pemKeys.privateKey,
+    };
+    localStorage.setItem("keys", JSON.stringify(keys));
+  }
 
-  importPrivateKey(privateKeyPem, signAlgorithm)
-    .then((privateKey) => {
-      console.log("Private Key (Imported):", privateKey);
-      // Use the private key as needed
-    })
-    .catch((error) => {
-      console.error("Error importing private key:", error);
-    });
-} else {
-  // Generate RSA key pair
-  const keyGenParams = {
-    name: "RSA-OAEP",
-    modulusLength: 2048,
-    publicExponent: new Uint8Array([1, 0, 1]),
-    hash: signAlgorithm,
-  };
-
-  generateKey(keyGenParams, ["encrypt", "decrypt"])
-    .then((pair) => {
-      // Export public and private keys to PEM format
-      exportPemKeys(pair)
-        .then((keys) => {
-          console.log("Public Key (PEM):", keys.publicKey);
-          console.log("Private Key (PEM):", keys.privateKey);
-
-          // Save keys in localStorage
-          localStorage.setItem("publicKey", keys.publicKey);
-          localStorage.setItem("privateKey", keys.privateKey);
-
-          // Use the generated keys as needed
-        })
-        .catch((error) => {
-          console.error("Export PEM Keys Error:", error);
-        });
-    })
-    .catch((error) => {
-      console.error("Key Generation Error:", error);
-    });
+  return keys;
 }
+
+generateAndStoreKey().then(function (keys) {
+  console.log("Public Key:", keys.publicKey);
+  console.log("Private Key:", keys.privateKey);
+});
