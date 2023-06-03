@@ -1,3 +1,10 @@
+/**
+ * Generates a cryptographic key pair asynchronously.
+ * @param {AlgorithmIdentifier} alg - The algorithm to be used for key generation.
+ * @param {Array} scope - The scope of the key pair.
+ * @returns {Promise<CryptoKeyPair>} A promise that resolves to the generated key pair.
+ */
+
 function generateKey(alg, scope) {
   return new Promise(function (resolve) {
     var genkey = crypto.subtle.generateKey(alg, true, scope);
@@ -6,6 +13,12 @@ function generateKey(alg, scope) {
     });
   });
 }
+
+/**
+ * Converts an ArrayBuffer to a Base64-encoded string.
+ * @param {ArrayBuffer} arrayBuffer - The ArrayBuffer to be converted.
+ * @returns {string} The Base64-encoded string.
+ */
 
 function arrayBufferToBase64String(arrayBuffer) {
   var byteArray = new Uint8Array(arrayBuffer);
@@ -16,6 +29,12 @@ function arrayBufferToBase64String(arrayBuffer) {
   return btoa(byteString);
 }
 
+/**
+ * Converts a Base64-encoded string to an ArrayBuffer.
+ * @param {string} b64str - The Base64-encoded string.
+ * @returns {ArrayBuffer} The converted ArrayBuffer.
+ */
+
 function base64StringToArrayBuffer(b64str) {
   var byteStr = atob(b64str);
   var bytes = new Uint8Array(byteStr.length);
@@ -24,6 +43,12 @@ function base64StringToArrayBuffer(b64str) {
   }
   return bytes.buffer;
 }
+
+/**
+ * Converts a text string to an ArrayBuffer.
+ * @param {string} str - The text string to be converted.
+ * @returns {Uint8Array} The converted ArrayBuffer.
+ */
 
 function textToArrayBuffer(str) {
   var buf = unescape(encodeURIComponent(str)); // 2 bytes for each char
@@ -34,6 +59,12 @@ function textToArrayBuffer(str) {
   return bufView;
 }
 
+/**
+ * Converts an ArrayBuffer to a text string.
+ * @param {ArrayBuffer} arrayBuffer - The ArrayBuffer to be converted.
+ * @returns {string} The converted text string.
+ */
+
 function arrayBufferToText(arrayBuffer) {
   var byteArray = new Uint8Array(arrayBuffer);
   var str = "";
@@ -43,9 +74,22 @@ function arrayBufferToText(arrayBuffer) {
   return str;
 }
 
+/**
+ * Converts an ArrayBuffer to a Base64-encoded string.
+ * @param {ArrayBuffer} arr - The ArrayBuffer to be converted.
+ * @returns {string} The Base64-encoded string.
+ */
+
 function arrayBufferToBase64(arr) {
   return btoa(String.fromCharCode.apply(null, new Uint8Array(arr)));
 }
+
+/**
+ * Converts binary data to a PEM format.
+ * @param {ArrayBuffer} binaryData - The binary data to be converted.
+ * @param {string} label - The label for the PEM format.
+ * @returns {string} The converted PEM format.
+ */
 
 function convertBinaryToPem(binaryData, label) {
   var base64Cert = arrayBufferToBase64String(binaryData);
@@ -64,6 +108,12 @@ function convertBinaryToPem(binaryData, label) {
   return pemCert;
 }
 
+/**
+ * Converts a PEM format to binary data.
+ * @param {string} pem - The PEM format string.
+ * @returns {ArrayBuffer} The binary data.
+ */
+
 function convertPemToBinary(pem) {
   var lines = pem.split("\n");
   var encoded = "";
@@ -81,6 +131,12 @@ function convertPemToBinary(pem) {
   return base64StringToArrayBuffer(encoded);
 }
 
+/**
+ * Imports a public key from a PEM format.
+ * @param {string} pemKey - The PEM format public key.
+ * @returns {Promise<CryptoKey>} A promise that resolves to the imported public key.
+ */
+
 function importPublicKey(pemKey) {
   return window.crypto.subtle.importKey(
     "spki",
@@ -90,6 +146,12 @@ function importPublicKey(pemKey) {
     ["encrypt"]
   );
 }
+
+/**
+ * Imports a private key from a PEM format.
+ * @param {string} pemKey - The PEM format private key.
+ * @returns {Promise<CryptoKey>} A promise that resolves to the imported private key.
+ */
 
 function importPrivateKey(pemKey) {
   return window.crypto.subtle.importKey(
@@ -101,6 +163,12 @@ function importPrivateKey(pemKey) {
   );
 }
 
+/**
+ * Exports a public key as a PEM format.
+ * @param {CryptoKeyPair} keys - The key pair containing the public key.
+ * @returns {Promise<string>} A promise that resolves to the public key in PEM format.
+ */
+
 function exportPublicKey(keys) {
   return new Promise(function (resolve) {
     window.crypto.subtle
@@ -111,6 +179,12 @@ function exportPublicKey(keys) {
   });
 }
 
+/**
+ * Exports a private key as a PEM format.
+ * @param {CryptoKeyPair} keys - The key pair containing the private key.
+ * @returns {Promise<string>} A promise that resolves to the private key in PEM format.
+ */
+
 function exportPrivateKey(keys) {
   return new Promise(function (resolve) {
     var expK = window.crypto.subtle.exportKey("pkcs8", keys.privateKey);
@@ -119,6 +193,12 @@ function exportPrivateKey(keys) {
     });
   });
 }
+
+/**
+ * Exports the public and private keys as PEM format.
+ * @param {CryptoKeyPair} keys - The key pair containing the public and private keys.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the public and private keys in PEM format.
+ */
 
 function exportPemKeys(keys) {
   return new Promise(function (resolve) {
@@ -130,13 +210,33 @@ function exportPemKeys(keys) {
   });
 }
 
+/**
+ * Signs data using a cryptographic key.
+ * @param {CryptoKey} key - The key used for signing.
+ * @param {string} data - The data to be signed.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves to the signature as an ArrayBuffer.
+ */
+
 function signData(key, data) {
   return window.crypto.subtle.sign(signAlgorithm, key, textToArrayBuffer(data));
 }
 
+/**
+ * Verifies a signature for the given data using a public key.
+ * @param {CryptoKey} pub - The public key used for verification.
+ * @param {ArrayBuffer} sig - The signature to be verified.
+ * @param {string} data - The data to verify the signature against.
+ * @returns {Promise<boolean>} A promise that resolves to true if the signature is valid, false otherwise.
+ */
+
 function testVerifySig(pub, sig, data) {
   return crypto.subtle.verify(signAlgorithm, pub, sig, data);
 }
+
+/**
+ * Generates and stores a cryptographic key pair in localStorage.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the generated key pair, public key, private key, and the actual CryptoKey pair for future use.
+ */
 
 async function generateAndStoreKey() {
   const storedKeys = localStorage.getItem("keys");
@@ -172,6 +272,13 @@ async function generateAndStoreKey() {
   return keys;
 }
 
+/**
+ * Encrypts data using a public key.
+ * @param {CryptoKey} publicKey - The public key used for encryption.
+ * @param {string} data - The data to be encrypted.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves to the encrypted data as an ArrayBuffer.
+ */
+
 function encryptData(publicKey, data) {
   return window.crypto.subtle.encrypt(
     {
@@ -182,6 +289,13 @@ function encryptData(publicKey, data) {
     textToArrayBuffer(data)
   );
 }
+
+/**
+ * Decrypts data using a private key.
+ * @param {CryptoKey} privateKey - The private key used for decryption.
+ * @param {ArrayBuffer} data - The data to be decrypted.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves to the decrypted data as an ArrayBuffer.
+ */
 
 function decryptData(privateKey, data) {
   return window.crypto.subtle.decrypt(
