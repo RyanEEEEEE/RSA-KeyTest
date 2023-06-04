@@ -1,117 +1,31 @@
-function generateKey(alg, scope) {
-  return crypto.subtle.generateKey(alg, true, scope);
+function textToArrayBuffer(text) {
+  var encoder = new TextEncoder();
+  return encoder.encode(text);
 }
 
-function arrayBufferToBase64String(arrayBuffer) {
-  var byteArray = new Uint8Array(arrayBuffer);
-  var byteString = "";
-  for (var i = 0; i < byteArray.byteLength; i++) {
-    byteString += String.fromCharCode(byteArray[i]);
+function arrayBufferToText(buffer) {
+  var decoder = new TextDecoder();
+  return decoder.decode(buffer);
+}
+
+function arrayBufferToBase64(buffer) {
+  var binary = "";
+  var bytes = new Uint8Array(buffer);
+  var len = bytes.byteLength;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-  return btoa(byteString);
+  return window.btoa(binary);
 }
 
-function base64StringToArrayBuffer(b64str) {
-  var byteStr = atob(b64str);
-  var bytes = new Uint8Array(byteStr.length);
-  for (var i = 0; i < byteStr.length; i++) {
-    bytes[i] = byteStr.charCodeAt(i);
+function base64ToArrayBuffer(base64) {
+  var binary = window.atob(base64);
+  var len = binary.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
   return bytes.buffer;
-}
-
-function textToArrayBuffer(str) {
-  var buf = unescape(encodeURIComponent(str)); // 2 bytes for each char
-  var bufView = new Uint8Array(buf.length);
-  for (var i = 0; i < buf.length; i++) {
-    bufView[i] = buf.charCodeAt(i);
-  }
-  return bufView;
-}
-
-function arrayBufferToText(arrayBuffer) {
-  var byteArray = new Uint8Array(arrayBuffer);
-  var str = "";
-  for (var i = 0; i < byteArray.byteLength; i++) {
-    str += String.fromCharCode(byteArray[i]);
-  }
-  return str;
-}
-
-function arrayBufferToBase64(arr) {
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(arr)));
-}
-
-function convertBinaryToPem(binaryData, label) {
-  var base64Cert = arrayBufferToBase64String(binaryData);
-  var pemCert = "-----BEGIN " + label + "-----\r\n";
-  var nextIndex = 0;
-  var lineLength;
-  while (nextIndex < base64Cert.length) {
-    if (nextIndex + 64 <= base64Cert.length) {
-      pemCert += base64Cert.substr(nextIndex, 64) + "\r\n";
-    } else {
-      pemCert += base64Cert.substr(nextIndex) + "\r\n";
-    }
-    nextIndex += 64;
-  }
-  pemCert += "-----END " + label + "-----\r\n";
-  return pemCert;
-}
-
-function convertPemToBinary(pem) {
-  var lines = pem.split("\n");
-  var encoded = "";
-  for (var i = 0; i < lines.length; i++) {
-    if (
-      lines[i].trim().length > 0 &&
-      lines[i].indexOf("-BEGIN RSA PRIVATE KEY-") < 0 &&
-      lines[i].indexOf("-BEGIN RSA PUBLIC KEY-") < 0 &&
-      lines[i].indexOf("-END RSA PRIVATE KEY-") < 0 &&
-      lines[i].indexOf("-END RSA PUBLIC KEY-") < 0
-    ) {
-      encoded += lines[i].trim();
-    }
-  }
-  return base64StringToArrayBuffer(encoded);
-}
-
-function importPublicKey(pemKey) {
-  return new Promise(function (resolve) {
-    var importer = crypto.subtle.importKey(
-      "spki",
-      convertPemToBinary(pemKey),
-      { name: "RSA-OAEP", hash: { name: "SHA-256" } },
-      true,
-      ["encrypt"]
-    );
-    importer.then(function (key) {
-      resolve(key);
-    });
-  });
-}
-
-function importPrivateKey(pemKey) {
-  return new Promise(function (resolve) {
-    var importer = crypto.subtle.importKey(
-      "pkcs8",
-      convertPemToBinary(pemKey),
-      { name: "RSA-OAEP", hash: { name: "SHA-256" } },
-      true,
-      ["decrypt"]
-    );
-    importer.then(function (key) {
-      resolve(key);
-    });
-  });
-}
-
-function exportPublicKey(key) {
-  return crypto.subtle.exportKey("spki", key);
-}
-
-function exportPrivateKey(key) {
-  return crypto.subtle.exportKey("pkcs8", key);
 }
 
 function signData(key, data) {
@@ -143,101 +57,184 @@ function decryptData(key, data) {
   return crypto.subtle.decrypt({ name: "RSA-OAEP" }, key, data);
 }
 
-// Generate Key Pair for Encryption/Decryption
-var encryptionKeyPairAlgorithm = {
-  name: "RSA-OAEP",
-  modulusLength: 2048,
-  publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-  hash: { name: "SHA-256" },
-};
-var encryptionKeyUsageScope = ["encrypt", "decrypt"];
+function generateKeyPair() {
+  return crypto.subtle.generateKey(
+    {
+      name: "RSA-PSS",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: { name: "SHA-256" },
+    },
+    true,
+    ["sign", "verify"]
+  );
+}
 
-// Generate Key Pair for Signing/Verifying
-var signingKeyPairAlgorithm = {
-  name: "RSA-PSS",
-  modulusLength: 2048,
-  publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-  hash: { name: "SHA-256" },
-};
-var signingKeyUsageScope = ["sign", "verify"];
+function generateKeyPairForEncryption() {
+  return crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: { name: "SHA-256" },
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+}
 
-generateKey(encryptionKeyPairAlgorithm, encryptionKeyUsageScope).then(function (
-  encryptionKeyPair
-) {
-  var encryptionPublicKey = encryptionKeyPair.publicKey;
-  var encryptionPrivateKey = encryptionKeyPair.privateKey;
+function useKeys() {
+  var message = prompt("What would you like to say?");
+  console.log("Original Message:", message);
 
-  generateKey(signingKeyPairAlgorithm, signingKeyUsageScope).then(function (
-    signingKeyPair
+  // Check if keys are saved in localStorage
+  var signingPublicKeyPem = localStorage.getItem("signingPublicKey");
+  var signingPrivateKeyPem = localStorage.getItem("signingPrivateKey");
+  var encryptionPublicKeyPem = localStorage.getItem("encryptionPublicKey");
+  var encryptionPrivateKeyPem = localStorage.getItem("encryptionPrivateKey");
+
+  if (
+    signingPublicKeyPem &&
+    signingPrivateKeyPem &&
+    encryptionPublicKeyPem &&
+    encryptionPrivateKeyPem
   ) {
-    var signingPublicKey = signingKeyPair.publicKey;
-    var signingPrivateKey = signingKeyPair.privateKey;
+    console.info("Using saved Crypto Keys...");
 
-    // Export Public and Private Keys
-    exportPublicKey(encryptionPublicKey).then(function (
-      encryptionPublicKeyExported
-    ) {
-      var exportedEncryptionPublicKey = convertBinaryToPem(
-        encryptionPublicKeyExported,
-        "RSA PUBLIC KEY"
-      );
-      console.log(
-        "Exported Encryption Public Key:",
-        exportedEncryptionPublicKey
-      );
-    });
+    // Keys are already saved, use them directly
+    var signingPublicKeyPromise = crypto.subtle.importKey(
+      "spki",
+      base64ToArrayBuffer(signingPublicKeyPem),
+      { name: "RSA-PSS", hash: { name: "SHA-256" } },
+      true,
+      ["verify"]
+    );
+    var signingPrivateKeyPromise = crypto.subtle.importKey(
+      "pkcs8",
+      base64ToArrayBuffer(signingPrivateKeyPem),
+      { name: "RSA-PSS", hash: { name: "SHA-256" } },
+      true,
+      ["sign"]
+    );
+    var encryptionPublicKeyPromise = crypto.subtle.importKey(
+      "spki",
+      base64ToArrayBuffer(encryptionPublicKeyPem),
+      { name: "RSA-OAEP", hash: { name: "SHA-256" } },
+      true,
+      ["encrypt"]
+    );
+    var encryptionPrivateKeyPromise = crypto.subtle.importKey(
+      "pkcs8",
+      base64ToArrayBuffer(encryptionPrivateKeyPem),
+      { name: "RSA-OAEP", hash: { name: "SHA-256" } },
+      true,
+      ["decrypt"]
+    );
 
-    exportPrivateKey(encryptionPrivateKey).then(function (
-      encryptionPrivateKeyExported
-    ) {
-      var exportedEncryptionPrivateKey = convertBinaryToPem(
-        encryptionPrivateKeyExported,
-        "RSA PRIVATE KEY"
-      );
-      console.log(
-        "Exported Encryption Private Key:",
-        exportedEncryptionPrivateKey
-      );
-    });
+    Promise.all([
+      signingPublicKeyPromise,
+      signingPrivateKeyPromise,
+      encryptionPublicKeyPromise,
+      encryptionPrivateKeyPromise,
+    ]).then(function ([
+      signingPublicKey,
+      signingPrivateKey,
+      encryptionPublicKey,
+      encryptionPrivateKey,
+    ]) {
+      console.log("Signing Public Key:", signingPublicKey);
+      console.log("Signing Private Key:", signingPrivateKey);
+      console.log("Encryption Public Key:", encryptionPublicKey);
+      console.log("Encryption Private Key:", encryptionPrivateKey);
 
-    exportPublicKey(signingPublicKey).then(function (signingPublicKeyExported) {
-      var exportedSigningPublicKey = convertBinaryToPem(
-        signingPublicKeyExported,
-        "RSA PUBLIC KEY"
-      );
-      console.log("Exported Signing Public Key:", exportedSigningPublicKey);
-    });
+      encryptData(encryptionPublicKey, message)
+        .then(function (encrypted) {
+          console.log("Encrypted Message:", arrayBufferToBase64(encrypted));
 
-    exportPrivateKey(signingPrivateKey).then(function (
-      signingPrivateKeyExported
-    ) {
-      var exportedSigningPrivateKey = convertBinaryToPem(
-        signingPrivateKeyExported,
-        "RSA PRIVATE KEY"
-      );
-      console.log("Exported Signing Private Key:", exportedSigningPrivateKey);
-    });
+          return decryptData(encryptionPrivateKey, encrypted);
+        })
+        .then(function (decrypted) {
+          console.log("Decrypted Message:", arrayBufferToText(decrypted));
 
-    // Example Usage: Encrypt and Decrypt
-    var plaintext = "Hello, World!";
-    encryptData(encryptionPublicKey, plaintext).then(function (ciphertext) {
-      console.log("Ciphertext:", arrayBufferToBase64(ciphertext));
-      decryptData(encryptionPrivateKey, ciphertext).then(function (
-        decryptedText
-      ) {
-        console.log("Decrypted Text:", arrayBufferToText(decryptedText));
-      });
-    });
+          return signData(signingPrivateKey, message);
+        })
+        .then(function (signature) {
+          console.log("Signature:", arrayBufferToBase64(signature));
 
-    // Example Usage: Sign and Verify
-    var message = "This is a message to be signed.";
-    signData(signingPrivateKey, message).then(function (signature) {
-      console.log("Signature:", arrayBufferToBase64(signature));
-      verifySignature(signingPublicKey, signature, message).then(function (
-        isValid
-      ) {
-        console.log("Is Valid Signature:", isValid);
-      });
+          return verifySignature(signingPublicKey, signature, message);
+        })
+        .then(function (verified) {
+          console.log("Signature Verified:", verified);
+        });
     });
-  });
-});
+  } else {
+    console.info("Generating new Crypto Keys...");
+    // Generate new key pairs
+    Promise.all([generateKeyPair(), generateKeyPairForEncryption()]).then(
+      function ([signingKeyPair, encryptionKeyPair]) {
+        var signingPublicKey = signingKeyPair.publicKey;
+        var signingPrivateKey = signingKeyPair.privateKey;
+        var encryptionPublicKey = encryptionKeyPair.publicKey;
+        var encryptionPrivateKey = encryptionKeyPair.privateKey;
+
+        console.log("Signing Public Key:", signingPublicKey);
+        console.log("Signing Private Key:", signingPrivateKey);
+        console.log("Encryption Public Key:", encryptionPublicKey);
+        console.log("Encryption Private Key:", encryptionPrivateKey);
+
+        // Export keys as PEM format
+        Promise.all([
+          crypto.subtle.exportKey("spki", signingPublicKey),
+          crypto.subtle.exportKey("pkcs8", signingPrivateKey),
+          crypto.subtle.exportKey("spki", encryptionPublicKey),
+          crypto.subtle.exportKey("pkcs8", encryptionPrivateKey),
+        ]).then(function ([
+          signingPublicKeyExport,
+          signingPrivateKeyExport,
+          encryptionPublicKeyExport,
+          encryptionPrivateKeyExport,
+        ]) {
+          // Convert exported keys to PEM format
+          var signingPublicKeyPem = arrayBufferToBase64(signingPublicKeyExport);
+          var signingPrivateKeyPem = arrayBufferToBase64(
+            signingPrivateKeyExport
+          );
+          var encryptionPublicKeyPem = arrayBufferToBase64(
+            encryptionPublicKeyExport
+          );
+          var encryptionPrivateKeyPem = arrayBufferToBase64(
+            encryptionPrivateKeyExport
+          );
+
+          // Save keys in localStorage
+          localStorage.setItem("signingPublicKey", signingPublicKeyPem);
+          localStorage.setItem("signingPrivateKey", signingPrivateKeyPem);
+          localStorage.setItem("encryptionPublicKey", encryptionPublicKeyPem);
+          localStorage.setItem("encryptionPrivateKey", encryptionPrivateKeyPem);
+
+          encryptData(encryptionPublicKey, message)
+            .then(function (encrypted) {
+              console.log("Encrypted Message:", arrayBufferToBase64(encrypted));
+
+              return decryptData(encryptionPrivateKey, encrypted);
+            })
+            .then(function (decrypted) {
+              console.log("Decrypted Message:", arrayBufferToText(decrypted));
+
+              return signData(signingPrivateKey, message);
+            })
+            .then(function (signature) {
+              console.log("Signature:", arrayBufferToBase64(signature));
+
+              return verifySignature(signingPublicKey, signature, message);
+            })
+            .then(function (verified) {
+              console.log("Signature Verified:", verified);
+            });
+        });
+      }
+    );
+  }
+}
+
+useKeys();
