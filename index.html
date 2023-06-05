@@ -10,6 +10,19 @@
     user-select: none; /* Standard syntax */
   "
 >
+  <div
+    style="
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      top: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1;
+      visibility: hidden;
+    "
+    id="settingsBehind"
+  ></div>
   <main class="container">
     <aside class="servers">
       <div class="servers-collection">
@@ -19,6 +32,7 @@
           aria-label="Settings"
           onclick="ocSettings()"
           id="openSettings"
+          style="z-index: 2"
         >
           <div class="server-icon">
             <svg><use xlink:href="#icon-settings" /></svg>
@@ -87,10 +101,11 @@
 
       <section class="chat"></section>
       <div
-      id="settings"
+        id="settings"
         style="
           background-color: #29292b;
           position: absolute;
+          z-index: 2;
           width: 75%;
           height: 75%;
           top: 50%;
@@ -102,11 +117,20 @@
           visibility: hidden;
         "
       >
-        <table>
+        <table style="margin: auto">
           <tbody>
-            <br>
+            <br />
             <tr>
               <h1>Settings:</h1>
+            </tr>
+            <br />
+            <tr>
+              <td>
+                <h3>Theme:</h3>
+              </td>
+            </tr>
+            <tr>
+              <td><button style="text-align: center">Default</button></td>
             </tr>
           </tbody>
         </table>
